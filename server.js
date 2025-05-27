@@ -103,6 +103,20 @@ app.post("/chat", async (req, res) => {
     const now = new Date();
     const offerRegex = /\$\s?\d/;
 
+
+    // Track chat history --- NEW ---
+    session.history.push({
+      role: "user",
+      message,
+      timestamp: now.toISOString(),
+    });
+    session.history.push({
+      role: "ai",
+      message: reply,
+      timestamp: now.toISOString(),
+    });
+
+
     // First offer from user
     if (!session.firstOffer && offerRegex.test(message)) {
       session.firstOffer = message;
@@ -154,6 +168,39 @@ app.post("/chat", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// --- NEW --- Route to download transcript as PDF
+app.get("/transcript/:email", (req, res) => {
+  const { email } = req.params;
+  const session = sessions.get(email);
+
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
+  }
+
+  const doc = new PDFDocument();
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${session.name.replace(/ /g, "_")}_transcript.pdf"`
+  );
+
+  doc.pipe(res);
+
+  doc.fontSize(16).text(`Negotiation Transcript for ${session.name}`, {
+    align: "center",
+  });
+  doc.moveDown();
+
+  session.history.forEach((entry) => {
+    const prefix = entry.role === "user" ? `${session.name}:` : "Martin:";
+    doc.fontSize(12).text(`[${entry.timestamp}] ${prefix} ${entry.message}`);
+    doc.moveDown(0.5);
+  });
+
+  doc.end();
+});
+
 
 // Route to retrieve summary of all negotiations
 app.get("/summary", (req, res) => {
