@@ -10,7 +10,13 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
+// ✅ Allow only your frontend domain
+app.use(cors({
+  origin: 'https://re-negotiation-frontend.onrender.com',
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
+
 app.use(express.json());
 
 // Load access codes from JSON file
@@ -133,40 +139,6 @@ app.post("/chat", async (req, res) => {
     }
 
     // Agreement detection
-    if (
-      /(we have a deal|i accept|let's proceed|agreed|we can agree)/i.test(
-        message + reply
-      )
-    ) {
-      session.agreement = reply;
-      session.timestamps.agreement = now;
-    }
-
-    res.json({ reply });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-
-    // Tracking logic
-    const now = new Date();
-
-    if (!session.firstOffer && /\$\d/.test(message)) {
-      session.firstOffer = message;
-      session.timestamps.firstOffer = now;
-    }
-
-    if (
-      session.firstOffer &&
-      !session.counterOffer &&
-      /\$\d/.test(reply)
-    ) {
-      session.counterOffer = reply;
-      session.timestamps.counterOffer = now;
-    }
-
     if (
       /(we have a deal|i accept|let's proceed|agreed|we can agree)/i.test(
         message + reply
