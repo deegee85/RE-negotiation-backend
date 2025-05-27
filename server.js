@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
+// Temporary list of valid access codes
+const validAccessCodes = ["ABC123", "XYZ456", "CODE789"]; // <-- You can edit this list
+
 
 dotenv.config();
 
@@ -43,6 +46,22 @@ app.post("/start", (req, res) => {
 
   res.json({ message: "Session started" });
 });
+
+app.post("/login", (req, res) => {
+  const { name, email, code } = req.body;
+
+  if (!name || !email || !code) {
+    return res.status(400).json({ error: "Missing name, email, or code" });
+  }
+
+  if (!validAccessCodes.includes(code)) {
+    return res.status(403).json({ error: "Invalid access code" });
+  }
+
+  // Success
+  return res.status(200).json({ message: "Access granted" });
+});
+
 
 // Route for sending/receiving chat messages
 app.post("/chat", async (req, res) => {
