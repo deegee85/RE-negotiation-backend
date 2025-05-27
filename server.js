@@ -2,9 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
-// Temporary list of valid access codes
-const validAccessCodes = ["ABC123", "XYZ456", "CODE789"]; // <-- You can edit this list
-
+import fs from "fs";
+import path from "path";
 
 dotenv.config();
 
@@ -14,6 +13,13 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Load access codes from JSON file
+function loadAccessCodes() {
+  const filePath = path.resolve("accessCodes.json");
+  const raw = fs.readFileSync(filePath);
+  return JSON.parse(raw);
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -21,11 +27,17 @@ const openai = new OpenAI({
 // In-memory session data (keyed by email)
 const sessions = new Map();
 
-// Route to start a new session
+// Route to start a new session (validates access code + sets up session)
 app.post("/start", (req, res) => {
-  const { name, email } = req.body;
-  if (!name || !email) {
-    return res.status(400).json({ error: "Missing name or email" });
+  const { name, email, code } = req.body;
+
+  if (!name || !email || !code) {
+    return res.status(400).json({ error: "Missing name, email, or code" });
+  }
+
+  const codes = loadAccessCodes();
+  if (!codes.includes(code)) {
+    return res.status(403).json({ error: "Invalid access code" });
   }
 
   if (!sessions.has(email)) {
@@ -44,26 +56,11 @@ app.post("/start", (req, res) => {
     });
   }
 
+  console.log(`✅ Access granted for ${name} (${email}) with code ${code}`);
   res.json({ message: "Session started" });
 });
 
-app.post("/login", (req, res) => {
-  const { name, email, code } = req.body;
-
-  if (!name || !email || !code) {
-    return res.status(400).json({ error: "Missing name, email, or code" });
-  }
-
-  if (!validAccessCodes.includes(code)) {
-    return res.status(403).json({ error: "Invalid access code" });
-  }
-
-  // Success
-  return res.status(200).json({ message: "Access granted" });
-});
-
-
-// Route for sending/receiving chat messages
+// Route for chat interaction
 app.post("/chat", async (req, res) => {
   const { message, email } = req.body;
 
@@ -96,17 +93,13 @@ app.post("/chat", async (req, res) => {
     const reply = completion.choices[0].message.content;
 
     // Tracking logic
-    const lowerMsg = message.toLowerCase();
-    const lowerReply = reply.toLowerCase();
     const now = new Date();
 
-    // Detect offer from user
     if (!session.firstOffer && /\$\d/.test(message)) {
       session.firstOffer = message;
       session.timestamps.firstOffer = now;
     }
 
-    // Detect counteroffer from AI
     if (
       session.firstOffer &&
       !session.counterOffer &&
@@ -116,9 +109,10 @@ app.post("/chat", async (req, res) => {
       session.timestamps.counterOffer = now;
     }
 
-    // Detect agreement
     if (
-      /(we have a deal|i accept|let's proceed|agreed|we can agree)/i.test(message + reply)
+      /(we have a deal|i accept|let's proceed|agreed|we can agree)/i.test(
+        message + reply
+      )
     ) {
       session.agreement = reply;
       session.timestamps.agreement = now;
@@ -131,7 +125,7 @@ app.post("/chat", async (req, res) => {
   }
 });
 
-// Route to retrieve summary of all negotiations (for admin use)
+// Route to retrieve summary of all negotiations
 app.get("/summary", (req, res) => {
   const summaries = Array.from(sessions.values()).map((session) => {
     const {
@@ -143,7 +137,7 @@ app.get("/summary", (req, res) => {
       timestamps,
     } = session;
 
-    const summary = {
+    return {
       name,
       email,
       firstOffer,
@@ -162,8 +156,6 @@ app.get("/summary", (req, res) => {
             )} sec`
           : null,
     };
-
-    return summary;
   });
 
   res.json({ summaries });
