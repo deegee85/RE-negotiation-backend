@@ -60,7 +60,6 @@ app.post("/start", (req, res) => {
   res.json({ message: "Session started" });
 });
 
-// Route for chat interaction
 app.post("/chat", async (req, res) => {
   const { message, email } = req.body;
 
@@ -91,6 +90,65 @@ app.post("/chat", async (req, res) => {
     });
 
     const reply = completion.choices[0].message.content;
+
+    // --- Tracking logic ---
+    const lowerMsg = message.toLowerCase();
+    const lowerReply = reply.toLowerCase();
+    const now = new Date();
+    const offerRegex = /\$\s?\d/;
+
+    // First offer from user
+    if (!session.firstOffer && offerRegex.test(message)) {
+      session.firstOffer = message;
+      session.firstOfferBy = "user";
+      session.timestamps.firstOffer = now;
+    }
+
+    // First offer from AI
+    if (!session.firstOffer && offerRegex.test(reply)) {
+      session.firstOffer = reply;
+      session.firstOfferBy = "ai";
+      session.timestamps.firstOffer = now;
+    }
+
+    // Counteroffer logic
+    if (
+      session.firstOffer &&
+      !session.counterOffer &&
+      session.firstOfferBy === "user" &&
+      offerRegex.test(reply)
+    ) {
+      session.counterOffer = reply;
+      session.timestamps.counterOffer = now;
+    }
+
+    if (
+      session.firstOffer &&
+      !session.counterOffer &&
+      session.firstOfferBy === "ai" &&
+      offerRegex.test(message)
+    ) {
+      session.counterOffer = message;
+      session.timestamps.counterOffer = now;
+    }
+
+    // Agreement detection
+    if (
+      /(we have a deal|i accept|let's proceed|agreed|we can agree)/i.test(
+        message + reply
+      )
+    ) {
+      session.agreement = reply;
+      session.timestamps.agreement = now;
+    }
+
+    res.json({ reply });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
     // Tracking logic
     const now = new Date();
@@ -135,12 +193,14 @@ app.get("/summary", (req, res) => {
       counterOffer,
       agreement,
       timestamps,
+      firstOfferBy,
     } = session;
 
     return {
       name,
       email,
       firstOffer,
+      firstOfferBy: firstOfferBy || "unknown",
       counterOffer,
       agreement,
       timeToCounter:
@@ -161,6 +221,7 @@ app.get("/summary", (req, res) => {
   res.json({ summaries });
 });
 
+// Start the server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
