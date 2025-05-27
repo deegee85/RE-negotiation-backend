@@ -53,6 +53,7 @@ app.post("/start", (req, res) => {
       firstOffer: null,
       counterOffer: null,
       agreement: null,
+      history: [], // ✅ Fix: initialize chat history
       timestamps: {
         firstOffer: null,
         counterOffer: null,
