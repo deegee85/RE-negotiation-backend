@@ -17,6 +17,12 @@ app.post("/chat", async (req, res) => {
   try {
     const { message, sessionId } = req.body;
 
+    // Validate inputs
+    if (!message || typeof message !== "string" || !sessionId) {
+      return res.status(400).json({ error: "Invalid message or sessionId." });
+    }
+
+    // Create session if it doesn't exist
     if (!sessions.has(sessionId)) {
       sessions.set(sessionId, {
         messages: [],
@@ -57,10 +63,17 @@ The current session has been running for ${elapsedMin} minute${elapsedMin !== 1 
       temperature: 0.7,
     });
 
-    const aiMessage = completion.choices[0].message;
+    const aiMessage = completion.choices[0]?.message;
 
+    // Validate AI message
+    if (!aiMessage || typeof aiMessage.content !== "string") {
+      console.error("Invalid AI message:", aiMessage);
+      return res.status(500).json({ error: "AI returned an invalid response." });
+    }
+
+    // Store conversation
     session.messages.push({ role: "user", content: message });
-    session.messages.push(aiMessage);
+    session.messages.push({ role: "assistant", content: aiMessage.content });
 
     res.json({ response: aiMessage.content });
   } catch (error) {
