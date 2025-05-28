@@ -73,23 +73,6 @@ app.post("/chat", async (req, res) => {
   res.json({ reply: aiReply });
 });
 
-// --- Handle chat messages ---
-app.post("/chat", async (req, res) => {
-  const { message, sessionId } = req.body;
-
-  if (!message || !sessionId || !sessions[sessionId]) {
-    return res.status(400).json({ error: "Invalid message or sessionId" });
-  }
-
-  const session = sessions[sessionId];
-  session.history.push({ from: "user", message, timestamp: new Date() });
-
-  // Placeholder: Replace this with your AI logic
-  const aiReply = `Echo: ${message}`;
-  session.history.push({ from: "ai", message: aiReply, timestamp: new Date() });
-
-  res.json({ reply: aiReply });
-});
 
 // --- Start server ---
 app.listen(PORT, () => {
