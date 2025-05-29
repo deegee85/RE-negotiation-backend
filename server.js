@@ -1,18 +1,18 @@
 const express = require("express");
+const cors = require("cors");
+const { v4: uuidv4 } = require("uuid");
 
-const app = express();
+const app = express(); // ✅ Only once!
 
-app.use(express.json());
-
+// --- Add health check route ---
 app.get('/health', (req, res) => {
   res.send('OK');
 });
 
-const cors = require("cors");
-const { v4: uuidv4 } = require("uuid");
+// --- Middleware ---
+app.use(express.json());
 
 const allowedOrigins = ["https://deegee85.github.io"];
-
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -23,11 +23,9 @@ app.use(cors({
   }
 }));
 
-app.use(express.json());
-
+// --- Setup ---
 const PORT = process.env.PORT || 3000;
-
-const validCodes = new Set(["ABC123", "DEF456", "GHI789"]); // Add your own codes
+const validCodes = new Set(["ABC123", "DEF456", "GHI789"]);
 const sessions = {}; // Stores session data
 
 // --- Handle login and return sessionId ---
@@ -60,13 +58,14 @@ app.post("/start", (req, res) => {
   res.json({ sessionId });
 });
 
+// --- Handle chat ---
 app.post("/chat", async (req, res) => {
   const { message, sessionId } = req.body;
 
-  console.log("Incoming /chat request:", { message, sessionId }); // ← ADD THIS LINE
+  console.log("Incoming /chat request:", { message, sessionId });
 
   if (!message || !sessionId || !sessions[sessionId]) {
-    console.log("Rejected /chat: Invalid message or sessionId"); // ← ADD THIS LINE
+    console.log("Rejected /chat: Invalid message or sessionId");
     return res.status(400).json({ error: "Invalid message or sessionId." });
   }
 
@@ -79,7 +78,6 @@ app.post("/chat", async (req, res) => {
 
   res.json({ reply: aiReply });
 });
-
 
 // --- Start server ---
 app.listen(PORT, () => {
