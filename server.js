@@ -1,8 +1,15 @@
 const express = require("express");
-const cors = require("cors");
-const { v4: uuidv4 } = require("uuid");
 
 const app = express();
+
+app.use(express.json());
+
+app.get('/health', (req, res) => {
+  res.send('OK');
+});
+
+const cors = require("cors");
+const { v4: uuidv4 } = require("uuid");
 
 const allowedOrigins = ["https://deegee85.github.io"];
 
