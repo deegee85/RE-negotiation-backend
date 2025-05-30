@@ -6,7 +6,6 @@ const app = express();
 app.use(cors()); // ✅ This enables CORS for all origins
 app.use(express.json());
 
-const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
 
 const app = express(); // ✅ Only once!
