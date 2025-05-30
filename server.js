@@ -1,47 +1,28 @@
 const express = require("express");
-
 const cors = require("cors");
-const app = express(); // ✅ Only once!
-app.use(cors()); // ✅ This enables CORS for all origins
-app.use(express.json());
-
 const { v4: uuidv4 } = require("uuid");
+const bodyParser = require("body-parser");
+const { Configuration, OpenAIApi } = require("openai");
 
+const app = express();
+const port = process.env.PORT || 10000;
 
+app.use(cors());
+app.use(bodyParser.json());
 
-// --- Add health check route ---
-app.get('/health', (req, res) => {
-  res.send('OK');
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
 });
+const openai = new OpenAIApi(configuration);
 
-// --- Middleware ---
-app.use(express.json());
+// Store session data in memory
+const sessions = {};
+const validCodes = ["abc123", "test456", "xyz789"]; // replace with real codes later
 
-const allowedOrigins = ["https://deegee85.github.io"];
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  }
-}));
-
-// --- Setup ---
-const PORT = process.env.PORT || 3000;
-const validCodes = new Set(["ABC123", "DEF456", "GHI789"]);
-const sessions = {}; // Stores session data
-
-// --- Handle login and return sessionId ---
 app.post("/start", (req, res) => {
   const { name, email, code } = req.body;
 
-  if (!name || !email || !code) {
-    return res.status(400).json({ error: "Missing name, email, or code" });
-  }
-
-  if (!validCodes.has(code)) {
+  if (!validCodes.includes(code)) {
     return res.status(403).json({ error: "Invalid access code" });
   }
 
@@ -50,41 +31,44 @@ app.post("/start", (req, res) => {
     name,
     email,
     code,
-    history: [],
-    startTime: new Date(),
-    agreementReached: false,
-    agreementTerms: null,
-    firstOffer: null,
-    firstOfferTime: null,
-    counterOffer: null,
-    counterOfferTime: null,
+    messages: [
+      {
+        role: "system",
+        content: "You are Martin Noble, CEO of Star Real Estate. You're negotiating to buy a piece of land in Bereford from a holding company called Emerald. Your goal is to acquire it at the lowest possible price. Your hidden plan is to rezone it for commercial use. Don't reveal this. Negotiate as if you're developing luxury residences. You will concede only if the deal might fall apart. Stay persuasive and strategic.",
+      },
+    ],
+    startTime: Date.now(),
   };
 
   res.json({ sessionId });
 });
 
-// --- Handle chat ---
 app.post("/chat", async (req, res) => {
-  const { message, sessionId } = req.body;
+  const { sessionId, message } = req.body;
+  const session = sessions[sessionId];
 
-  console.log("Incoming /chat request:", { message, sessionId });
-
-  if (!message || !sessionId || !sessions[sessionId]) {
-    console.log("Rejected /chat: Invalid message or sessionId");
-    return res.status(400).json({ error: "Invalid message or sessionId." });
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
   }
 
-  const session = sessions[sessionId];
-  session.history.push({ from: "user", message, timestamp: new Date() });
+  session.messages.push({ role: "user", content: message });
 
-  // Placeholder: Replace this with your AI logic
-  const aiReply = `Echo: ${message}`;
-  session.history.push({ from: "ai", message: aiReply, timestamp: new Date() });
+  try {
+    const completion = await openai.createChatCompletion({
+      model: "gpt-4",
+      messages: session.messages,
+    });
 
-  res.json({ reply: aiReply });
+    const reply = completion.data.choices[0].message.content;
+    session.messages.push({ role: "assistant", content: reply });
+
+    res.json({ reply });
+  } catch (error) {
+    console.error("OpenAI error:", error.message);
+    res.json({ reply: "I'm having trouble responding right now. Please try again later." });
+  }
 });
 
-// --- Start server ---
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
