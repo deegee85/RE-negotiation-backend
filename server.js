@@ -1,13 +1,13 @@
 const express = require("express");
 
 const cors = require("cors");
-
+const app = express(); // ✅ Only once!
 app.use(cors()); // ✅ This enables CORS for all origins
 app.use(express.json());
 
 const { v4: uuidv4 } = require("uuid");
 
-const app = express(); // ✅ Only once!
+
 
 // --- Add health check route ---
 app.get('/health', (req, res) => {
