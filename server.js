@@ -15,9 +15,8 @@ const configuration = new Configuration({
 });
 const openai = new OpenAIApi(configuration);
 
-// Store session data in memory
 const sessions = {};
-const validCodes = ["abc123", "test456", "xyz789"]; // replace with real codes later
+const validCodes = ["abc123", "test456", "xyz789"]; // Replace with your actual codes
 
 app.post("/start", (req, res) => {
   const { name, email, code } = req.body;
@@ -65,7 +64,7 @@ app.post("/chat", async (req, res) => {
     res.json({ reply });
   } catch (error) {
     console.error("OpenAI error:", error.message);
-    res.json({ reply: "I'm having trouble responding right now. Please try again later." });
+    res.json({ reply: "Sorry, I'm having trouble replying right now." });
   }
 });
 
