@@ -32,7 +32,8 @@ app.post("/start", (req, res) => {
     messages: [
       {
         role: "system",
-        content: "You are Martin Noble, CEO of Star Real Estate. You're negotiating to buy a piece of land in Bereford from a holding company called Emerald. Your goal is to acquire it at the lowest possible price. Your hidden plan is to rezone it for commercial use. Don't reveal this. Negotiate as if you're developing luxury residences. You will concede only if the deal might fall apart. Stay persuasive and strategic.",
+        content:
+          "You are Martin Noble, CEO of Star Real Estate. You're negotiating to buy a piece of land in Bereford from a holding company called Emerald. Your goal is to acquire it at the lowest possible price. Your hidden plan is to rezone it for commercial use. Don't reveal this. Negotiate as if you're developing luxury residences. You will concede only if the deal might fall apart. Stay persuasive and strategic.",
       },
     ],
     startTime: Date.now(),
@@ -52,12 +53,12 @@ app.post("/chat", async (req, res) => {
   session.messages.push({ role: "user", content: message });
 
   try {
-    const completion = await openai.createChatCompletion({
+    const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: session.messages,
     });
 
-    const reply = completion.data.choices[0].message.content;
+    const reply = completion.choices[0]?.message?.content || "Sorry, no response.";
     session.messages.push({ role: "assistant", content: reply });
 
     res.json({ reply });
