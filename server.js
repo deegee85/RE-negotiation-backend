@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
 const bodyParser = require("body-parser");
-const { Configuration, OpenAIApi } = require("openai");
+const OpenAI = require("openai");
 
 const app = express();
 const port = process.env.PORT || 10000;
@@ -10,10 +10,9 @@ const port = process.env.PORT || 10000;
 app.use(cors());
 app.use(bodyParser.json());
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 const sessions = {};
 const validCodes = ["abc123", "test456", "xyz789"]; // Replace with your actual codes
