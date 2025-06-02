@@ -118,5 +118,67 @@ function recordSummary(sessionId) {
   });
 }
 
+// Add this near your other endpoints
+app.get("/results", async (req, res) => {
+  try {
+    const data = await readData();
+
+    let html = `
+      <html>
+        <head>
+          <title>Negotiation Results</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            tr:hover { background-color: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <h2>Negotiation Results</h2>
+          <table>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>First Offer By</th>
+              <th>First Offer</th>
+              <th>Counteroffer</th>
+              <th>Counter Delay (s)</th>
+              <th>Agreement</th>
+              <th>Agreement Terms</th>
+              <th>Time to Agreement (s)</th>
+            </tr>
+    `;
+
+    for (const row of data) {
+      html += `
+        <tr>
+          <td>${row.name || ""}</td>
+          <td>${row.email || ""}</td>
+          <td>${row.firstOfferBy || ""}</td>
+          <td>${row.firstOffer || ""}</td>
+          <td>${row.counterOffer || ""}</td>
+          <td>${row.counterDelay ?? ""}</td>
+          <td>${row.agreementReached ? "Yes" : "No"}</td>
+          <td>${row.agreementTerms || ""}</td>
+          <td>${row.timeToAgreement ?? ""}</td>
+        </tr>
+      `;
+    }
+
+    html += `
+          </table>
+        </body>
+      </html>
+    `;
+
+    res.send(html);
+  } catch (err) {
+    console.error("Error generating results page:", err);
+    res.status(500).send("Error generating results page.");
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
