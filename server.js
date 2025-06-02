@@ -1,6 +1,9 @@
+
 const express = require("express");
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
+const fs = require("fs").promises;
+const path = require("path");
 
 const app = express();
 app.use(cors());
@@ -8,14 +11,6 @@ app.use(express.json());
 
 const sessions = {};
 const summaryData = [];
-
-app.post("/start", (req, res) => {
-  const { name, email, code } = req.body;
-  if (!name || !email || !code) {
-    return res.status(400).json({ error: "All fields are required." });
-  }
-const fs = require("fs").promises;
-const path = require("path");
 
 const dataFilePath = path.join(__dirname, "data.json");
 
@@ -29,7 +24,11 @@ async function readData() {
   }
 }
 
-
+app.post("/start", (req, res) => {
+  const { name, email, code } = req.body;
+  if (!name || !email || !code) {
+    return res.status(400).json({ error: "All fields are required." });
+  }
 
   const sessionId = uuidv4();
   const startTime = Date.now();
@@ -134,59 +133,10 @@ function recordSummary(sessionId) {
   });
 }
 
-// Add this near your other endpoints
+// ✅ INSERTED /results ROUTE PROPERLY
 app.get("/results", async (req, res) => {
-  const sampleData = [
-    {
-      name: "Your Name",
-      email: "your@email.com",
-      firstOfferBy: "Student",
-      firstOffer: "$500,000",
-      counterOffer: "$700,000",
-      counterDelay: 45,
-      agreementReached: true,
-      agreementTerms: "$650,000",
-      timeToAgreement: 120
-    }
-  ];
-
-  const html = `
-    <html>
-    <head>
-      <title>Negotiation Results</title>
-      <style>
-        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-      </style>
-    </head>
-    <body>
-      <h1>Negotiation Results</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th><th>Email</th><th>First Offer By</th><th>First Offer</th>
-            <th>Counter Offer</th><th>Counter Delay (sec)</th><th>Agreement Reached</th>
-            <th>Agreement Terms</th><th>Time to Agreement (sec)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sampleData.map(d => `
-            <tr>
-              <td>${d.name}</td><td>${d.email}</td><td>${d.firstOfferBy}</td>
-              <td>${d.firstOffer}</td><td>${d.counterOffer}</td><td>${d.counterDelay}</td>
-              <td>${d.agreementReached ? "Yes" : "No"}</td><td>${d.agreementTerms}</td>
-              <td>${d.timeToAgreement}</td>
-            </tr>`).join("")}
-        </tbody>
-      </table>
-    </body>
-    </html>
-  `;
-  res.send(html);
-});
-
-
+  try {
+    const data = await readData();
     let html = `
       <html>
         <head>
