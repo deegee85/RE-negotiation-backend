@@ -1,73 +1,122 @@
 const express = require("express");
 const cors = require("cors");
 const { v4: uuidv4 } = require("uuid");
-const bodyParser = require("body-parser");
-const OpenAI = require("openai");
 
 const app = express();
-const port = process.env.PORT || 10000;
-
 app.use(cors());
-app.use(bodyParser.json());
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+app.use(express.json());
 
 const sessions = {};
-const validCodes = ["abc123", "test456", "xyz789"]; // Replace with your actual codes
+const summaryData = [];
 
 app.post("/start", (req, res) => {
   const { name, email, code } = req.body;
-
-  if (!validCodes.includes(code)) {
-    return res.status(403).json({ error: "Invalid access code" });
+  if (!name || !email || !code) {
+    return res.status(400).json({ error: "All fields are required." });
   }
 
   const sessionId = uuidv4();
+  const startTime = Date.now();
+  const endTime = startTime + 18 * 60 * 1000;
+
   sessions[sessionId] = {
     name,
     email,
     code,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are Martin Noble, CEO of Star Real Estate. You're negotiating to buy a piece of land in Bereford from a holding company called Emerald. Your goal is to acquire it at the lowest possible price. Your hidden plan is to rezone it for commercial use. Don't reveal this. Negotiate as if you're developing luxury residences. You will concede only if the deal might fall apart. Stay persuasive and strategic.",
-      },
-    ],
-    startTime: Date.now(),
+    startTime,
+    endTime,
+    transcript: [],
+    firstOffer: null,
+    counterOffer: null,
+    agreementReached: false,
+    agreementTime: null,
+    firstOfferTime: null,
+    counterOfferTime: null,
+    ended: false,
   };
 
   res.json({ sessionId });
 });
 
-app.post("/chat", async (req, res) => {
+app.post("/chat", (req, res) => {
   const { sessionId, message } = req.body;
   const session = sessions[sessionId];
+  if (!session) return res.status(400).json({ error: "Invalid session." });
 
-  if (!session) {
-    return res.status(404).json({ error: "Session not found" });
+  const now = Date.now();
+  if (now >= session.endTime) {
+    if (!session.ended) {
+      session.ended = true;
+      recordSummary(sessionId);
+    }
+    return res.json({ reply: "⏰ Time is up. The negotiation has ended." });
   }
 
-  session.messages.push({ role: "user", content: message });
+  session.transcript.push({ sender: "user", message, timestamp: now });
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: session.messages,
-    });
+  let reply = generateAIReply(message);
 
-    const reply = completion.choices[0]?.message?.content || "Sorry, no response.";
-    session.messages.push({ role: "assistant", content: reply });
+  session.transcript.push({ sender: "ai", message: reply, timestamp: now });
 
-    res.json({ reply });
-  } catch (error) {
-    console.error("OpenAI error:", error.message);
-    res.json({ reply: "Sorry, I'm having trouble replying right now." });
+  // Detect first offer
+  if (!session.firstOffer && isOffer(message)) {
+    session.firstOffer = message;
+    session.firstOfferTime = now;
+    session.firstOfferSender = "user";
   }
+
+  // Detect counteroffer
+  if (session.firstOffer && !session.counterOffer && isOffer(reply)) {
+    session.counterOffer = reply;
+    session.counterOfferTime = now;
+  }
+
+  // Detect agreement
+  if (session.firstOffer && /agree|deal|accept/i.test(message)) {
+    session.agreementReached = true;
+    session.agreementTime = now;
+    if (!session.ended) {
+      session.ended = true;
+      recordSummary(sessionId);
+    }
+  }
+
+  res.json({ reply });
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+app.get("/summary", (req, res) => {
+  res.json(summaryData);
 });
+
+function generateAIReply(userMessage) {
+  if (/price|offer|million/i.test(userMessage)) {
+    return "That’s an interesting proposal. What’s your number?";
+  } else if (/agree|deal|accept/i.test(userMessage)) {
+    return "I believe we have a deal.";
+  }
+  return "Can you clarify your position a bit more?";
+}
+
+function isOffer(message) {
+  return /\$\d+|\d+ million/i.test(message);
+}
+
+function recordSummary(sessionId) {
+  const s = sessions[sessionId];
+  summaryData.push({
+    name: s.name,
+    email: s.email,
+    firstOffer: s.firstOffer || "—",
+    counterOffer: s.counterOffer || "—",
+    timeToCounteroffer: s.firstOfferTime && s.counterOfferTime
+      ? ((s.counterOfferTime - s.firstOfferTime) / 1000).toFixed(1) + "s"
+      : "—",
+    timeToAgreement: s.firstOfferTime && s.agreementTime
+      ? ((s.agreementTime - s.firstOfferTime) / 1000).toFixed(1) + "s"
+      : "—",
+    agreement: s.agreementReached ? "✅" : "❌",
+  });
+}
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
